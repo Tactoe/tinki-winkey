@@ -17,8 +17,7 @@ void installService()
 {
 	SC_HANDLE schSCManager;
 	SC_HANDLE schService;
-    // TCHAR *servicePath = "d:\\42\\tinky-winkey\\tinky\\tinky.exe";   
-    TCHAR *servicePath = "c:\\Users\\Titouan\\Documents\\42\\tinky-winkey-main\\tinky\\userToken.exe";
+    TCHAR *servicePath = "c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\tinky\\userToken.exe";
 	TCHAR *serviceName = SVCNAME;
 	schSCManager = OpenSCManager( 
         NULL,                    // local computer

