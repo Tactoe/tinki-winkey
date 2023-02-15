@@ -22,11 +22,7 @@ VOID SvcInit( DWORD, LPTSTR * );
 DWORD getWinlogonPID();
 
 
-BOOL SetPrivilege(
-	HANDLE hToken,          // access token handle
-	LPCTSTR lpszPrivilege,  // name of privilege to enable/disable
-	BOOL bEnablePrivilege   // to enable or disable privilege
-)
+BOOL SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
 {
 	TOKEN_PRIVILEGES tp;
 	LUID luid;

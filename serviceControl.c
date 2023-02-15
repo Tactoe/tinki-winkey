@@ -10,9 +10,6 @@ BOOL ListProcessModules( DWORD dwPID );
 BOOL ListProcessThreads( DWORD dwOwnerPID );
 void printError( TCHAR* msg );
 
-// DWORD : type d'int utilise pour PID sur win
-
-
 void installService()
 {
 	SC_HANDLE schSCManager;
