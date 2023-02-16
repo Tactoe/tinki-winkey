@@ -8,8 +8,8 @@ all: svc userToken winkey clear
 .c.obj:
   $(cc) $(cdebug) $(cflags) $(cvars) $*.c
 
-svc: serviceControl.obj
-  $(link) $(ldebug) $(conflags) -out:svc.exe serviceControl.obj $(conlibs) 
+svc: misc.obj serviceControl.obj
+  $(link) $(ldebug) $(conflags) -out:svc.exe misc.obj serviceControl.obj $(conlibs) 
 
 userToken: misc.obj userToken.obj
   $(link) $(ldebug) $(conflags) -out:userToken.exe misc.obj userToken.obj $(conlibs) 

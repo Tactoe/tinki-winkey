@@ -9,12 +9,24 @@ BOOL GetProcessList( );
 BOOL ListProcessModules( DWORD dwPID );
 BOOL ListProcessThreads( DWORD dwOwnerPID );
 void printError( TCHAR* msg );
+int getFolderStringLength (TCHAR* str);
 
 void installService()
 {
 	SC_HANDLE schSCManager;
 	SC_HANDLE schService;
-    TCHAR *servicePath = "c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\userToken.exe";
+    TCHAR modulePath[MAX_PATH];
+    TCHAR moduleFolder[MAX_PATH];
+    TCHAR servicePath[MAX_PATH];
+
+    if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
+    {
+        printf("Cannot install service (%d)\n", GetLastError());
+        return;
+    }
+    strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
+    snprintf(servicePath, MAX_PATH, "%s\\winkey.exe", moduleFolder);
+
 	TCHAR *serviceName = SVCNAME;
 	schSCManager = OpenSCManager( 
         NULL,                    // local computer
