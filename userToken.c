@@ -4,12 +4,10 @@
 #include <tchar.h>
 #include <strsafe.h>
 
-#pragma comment(lib, "advapi32.lib")
+#define SVCNAME "tinky"
 
-#define SVCNAME TEXT("tinky")
-
-SERVICE_STATUS          gSvcStatus; 
-SERVICE_STATUS_HANDLE   gSvcStatusHandle; 
+SERVICE_STATUS          gSvcStatus = NULL; 
+SERVICE_STATUS_HANDLE   gSvcStatusHandle = NULL; 
 HANDLE                  ghSvcStopEvent = NULL;
 
 VOID SvcInstall(void);
@@ -252,13 +250,13 @@ VOID WINAPI SvcCtrlHandler( DWORD dwCtrl )
    
 }
 
-int __cdecl _tmain(int argc, TCHAR *argv[]) 
+int main(int argc, TCHAR *argv[]) 
 { 
 
     // TO_DO: Add any additional services for the process to this table.
     SERVICE_TABLE_ENTRY DispatchTable[] = 
     { 
-        { (LPSTR)("tinky"), (LPSERVICE_MAIN_FUNCTION)(SvcMain)}, 
+        { (LPSTR)(SVCNAME), (LPSERVICE_MAIN_FUNCTION)(SvcMain)}, 
         { NULL, NULL } 
     }; 
  

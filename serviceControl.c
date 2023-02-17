@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SVCNAME "tinky";
+#define SVCNAME "tinky"
 
-//  Forward declarations:
 int getFolderStringLength (TCHAR* str);
 
 void installService()
@@ -21,7 +20,7 @@ void installService()
         return;
     }
     strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
-    snprintf(servicePath, MAX_PATH, "%s\\winkey.exe", moduleFolder);
+    snprintf(servicePath, MAX_PATH, "%s\\userToken.exe", moduleFolder);
 
 	TCHAR *serviceName = SVCNAME;
 	schSCManager = OpenSCManager( 
@@ -121,7 +120,6 @@ SC_HANDLE getService()
 	return schService;
 }
 
-
 void serviceStart()
 {
 	/* Fetch service */
@@ -144,7 +142,6 @@ void serviceStart()
 			printf("Service failed to start (%s)\n", lastError);
 		}
 	}
-	printf("DEAD");
 
 	/* Cleanup handle */
 	CloseServiceHandle(schService);
@@ -197,14 +194,9 @@ stop_cleanup:
     CloseServiceHandle(schService); 
 }
 
-
-int main(int argc, char *argv[]) {
-
-	if (argc != 2)
-	{
-		printf("BAD");
-	}
-	else
+int main(int argc, char *argv[])
+{
+	if (argc == 2)
 	{
 		if (strcmp(argv[1], "install") == 0)
 			installService();
@@ -215,6 +207,9 @@ int main(int argc, char *argv[]) {
 		else if (strcmp(argv[1], "delete") == 0)
 			deleteService();
 	}
-
+	else
+	{
+		printf("Usage: svc.exe +\ninstall\nstart\nstop\ndelete");
+	}
 	return 0;
 }
