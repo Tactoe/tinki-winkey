@@ -6,7 +6,7 @@
 
 #define SVCNAME "tinky"
 
-SERVICE_STATUS          gSvcStatus = NULL; 
+SERVICE_STATUS          gSvcStatus; 
 SERVICE_STATUS_HANDLE   gSvcStatusHandle = NULL; 
 HANDLE                  ghSvcStopEvent = NULL;
 
@@ -113,9 +113,20 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 	}
     CloseHandle(winlogonTokenHandle);
 
+    TCHAR modulePath[MAX_PATH];
+    TCHAR moduleFolder[MAX_PATH];
+    TCHAR winkeyPath[MAX_PATH];
+
+    if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
+    {
+        printf("Cannot find module (%d)\n", GetLastError());
+        return;
+    }
+    strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
+    snprintf(winkeyPath, MAX_PATH, "%s\\winkey.exe", moduleFolder);
 	/* Open the winkey process, detached with the token */
 	CreateProcessAsUser(winlogonDuplicateTokenHandle,
-		TEXT("c:\\Users\\Titouan\\Documents\\42\\tinky-winkey\\winkey.exe"),
+		TEXT(winkeyPath),
 		NULL,
 		NULL,
 		NULL,
