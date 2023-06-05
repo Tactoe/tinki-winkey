@@ -6,7 +6,7 @@
 all: svc userToken winkey clear
 
 .c.obj:
-  $(cc) $(cdebug) $(cflags) $(cvars) $*.c
+  $(cc) $(cdebug) $(cflags) $(cvars) -Wall -WX $*.c
 
 svc: misc.obj serviceControl.obj
   $(link) $(ldebug) $(conflags) -out:svc.exe misc.obj serviceControl.obj $(conlibs) 
@@ -17,6 +17,10 @@ userToken: misc.obj userToken.obj
 winkey: misc.obj winkey.obj
   $(link) $(ldebug) $(conflags) -out:winkey.exe misc.obj winkey.obj $(conlibs) 
 
-clear:
+
+clean:
   del *.obj
   del *.pdb
+
+fclean: clean
+  del *.exe

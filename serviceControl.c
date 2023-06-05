@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +7,7 @@
 
 int getFolderStringLength (TCHAR* str);
 
-void installService()
+void installService(void)
 {
 	SC_HANDLE schSCManager;
 	SC_HANDLE schService;
@@ -16,7 +17,7 @@ void installService()
 
     if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
     {
-        printf("Cannot install service (%d)\n", GetLastError());
+        printf("Cannot install service (%lu)\n", GetLastError());
         return;
     }
     strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
@@ -31,7 +32,7 @@ void installService()
 
     if (NULL == schSCManager) 
     {
-        printf("OpenSCManager failed (%d)\n", GetLastError());
+        printf("OpenSCManager failed (%lu)\n", GetLastError());
         return;
     }
   
@@ -52,7 +53,7 @@ void installService()
  
     if (schService == NULL) 
     {
-        printf("CreateService failed (%d)\n", GetLastError()); 
+        printf("CreateService failed (%lu)\n", GetLastError()); 
         CloseServiceHandle(schSCManager);
         return;
     }
@@ -62,7 +63,7 @@ void installService()
     CloseServiceHandle(schSCManager);
 }
 
-void deleteService()
+void deleteService(void)
 {
 	SC_HANDLE schSCManager;
 	SC_HANDLE schService;
@@ -74,7 +75,7 @@ void deleteService()
 
     if (NULL == schSCManager) 
     {
-        printf("OpenSCManager failed (%d)\n", GetLastError());
+        printf("OpenSCManager failed (%lu)\n", GetLastError());
         return;
     }
 
@@ -85,15 +86,15 @@ void deleteService()
  
     if (schService == NULL)
     { 
-        printf("OpenService failed (%d)\n", GetLastError()); 
+        printf("OpenService failed (%lu)\n", GetLastError()); 
         CloseServiceHandle(schSCManager);
         return;
     }    
 
 	BOOL serviceDeleted = DeleteService(schService);
-    if (serviceDeleted == NULL)
+    if (serviceDeleted == FALSE)
     { 
-        printf("DeleteService failed (%d)\n", GetLastError()); 
+        printf("DeleteService failed (%lu)\n", GetLastError()); 
     }    
 	else printf("Service successfully deleted");
   
@@ -101,7 +102,7 @@ void deleteService()
     CloseServiceHandle(schSCManager);
 }
 
-SC_HANDLE getService()
+SC_HANDLE getService(void)
 {
 	TCHAR *serviceName = SVCNAME;
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -120,7 +121,7 @@ SC_HANDLE getService()
 	return schService;
 }
 
-void serviceStart()
+void serviceStart(void)
 {
 	/* Fetch service */
 	SC_HANDLE schService = getService();
@@ -139,7 +140,7 @@ void serviceStart()
 			printf("Service already started\n");
 		}
 		else {
-			printf("Service failed to start (%s)\n", lastError);
+			printf("Service failed to start (%lu)\n", lastError);
 		}
 	}
 
@@ -147,15 +148,10 @@ void serviceStart()
 	CloseServiceHandle(schService);
 }
 
-void serviceStop()
+void serviceStop(void)
 {
 	SC_HANDLE schService;
-    SERVICE_STATUS_PROCESS ssStatus; 
-	TCHAR *serviceName = SVCNAME;
 	DWORD dwBytesNeeded;
-	DWORD dwOldCheckPoint; 
-    DWORD dwStartTickCount;
-    DWORD dwWaitTime;
 	SERVICE_STATUS_PROCESS ssp;
 
 	schService = getService();
@@ -168,7 +164,7 @@ void serviceStop()
         sizeof(SERVICE_STATUS_PROCESS),
         &dwBytesNeeded ) )
 	{
-		printf("QueryServiceStatusEx failed (%d)\n", GetLastError()); 
+		printf("QueryServiceStatusEx failed (%lu)\n", GetLastError()); 
 		goto stop_cleanup;
 	}
 
@@ -186,7 +182,7 @@ void serviceStop()
 			SERVICE_CONTROL_STOP, 
 			(LPSERVICE_STATUS) &ssp ) )
 	{
-		printf( "ControlService failed (%d)\n", GetLastError() );
+		printf( "ControlService failed (%lu)\n", GetLastError() );
 		goto stop_cleanup;
 	}
 

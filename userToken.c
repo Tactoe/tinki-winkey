@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,12 +13,14 @@ HANDLE                  ghSvcStopEvent = NULL;
 
 VOID SvcInstall(void);
 VOID WINAPI SvcCtrlHandler( DWORD ); 
-VOID WINAPI SvcMain(); 
-VOID WINAPI SvcInit(); 
+VOID WINAPI SvcMain(void); 
+VOID WINAPI SvcInit(void); 
 
 VOID ReportSvcStatus( DWORD, DWORD, DWORD );
 
-DWORD getWinlogonPID();
+DWORD getWinlogonPID(void);
+
+int getFolderStringLength (TCHAR* str);
 
 
 BOOL SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
@@ -30,7 +33,7 @@ BOOL SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
 		lpszPrivilege,   // privilege to lookup 
 		&luid))        // receives LUID of privilege
 	{
-		printf("[-] LookupPrivilegeValue error: %u\n", GetLastError());
+		printf("[-] LookupPrivilegeValue error: %lu\n", GetLastError());
 		return FALSE;
 	}
 
@@ -51,7 +54,7 @@ BOOL SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
 		(PTOKEN_PRIVILEGES)NULL,
 		(PDWORD)NULL))
 	{
-		printf("[-] AdjustTokenPrivileges error: %u\n", GetLastError());
+		printf("[-] AdjustTokenPrivileges error: %lu\n", GetLastError());
 		return FALSE;
 	}
 
@@ -75,41 +78,41 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
     	printf("Failed to get winlogon PID");
 
     HANDLE currentTokenHandle = NULL;
-	BOOL getCurrentToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &currentTokenHandle);
+	OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &currentTokenHandle);
 	if (SetPrivilege(currentTokenHandle, "SeDebugPrivilege", TRUE))
 	{
 		printf("[+] SeDebugPrivilege enabled!\n");
 	}
 
     HANDLE processHandle = OpenProcess(PROCESS_QUERY_INFORMATION, TRUE, winlogonPID);
-	if (GetLastError() == NULL)
+	if (GetLastError() == 0)
 		printf("[+] OpenProcess() success!\n");
 	else
 	{
-		printf("[-] OpenProcess() Return Code: %i\n", processHandle);
-		printf("[-] OpenProcess() Error: %i\n", GetLastError());
+		printf("[-] OpenProcess() Return Code: %p\n", processHandle);
+		printf("[-] OpenProcess() Error: %li\n", GetLastError());
 	}
 	
 	// Call OpenProcessToken(), print return code and error code
 	BOOL getToken = OpenProcessToken(processHandle, TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY, &winlogonTokenHandle);
-	if (GetLastError() == NULL)
+	if (GetLastError() == 0)
 		printf("[+] OpenProcessToken() success!\n");
 	else
 	{
 		printf("[-] OpenProcessToken() Return Code: %i\n", getToken);
-		printf("[-] OpenProcessToken() Error: %i\n", GetLastError());
+		printf("[-] OpenProcessToken() Error: %li\n", GetLastError());
 	}
 	
 	CloseHandle(processHandle);
 
 	// Call DuplicateTokenEx(), print return code and error code
 	BOOL duplicateToken = DuplicateTokenEx(winlogonTokenHandle, TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID | TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY, NULL, SecurityImpersonation, TokenPrimary, &winlogonDuplicateTokenHandle);
-	if (GetLastError() == NULL)
+	if (GetLastError() == 0)
 		printf("[+] DuplicateTokenEx() success!\n");
 	else
 	{
 		printf("[-] DuplicateTokenEx() Return Code: %i\n", duplicateToken);
-		printf("[-] DupicateTokenEx() Error: %i\n", GetLastError());
+		printf("[-] DupicateTokenEx() Error: %li\n", GetLastError());
 	}
     CloseHandle(winlogonTokenHandle);
 
@@ -119,7 +122,7 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 
     if(!GetModuleFileName(NULL, modulePath, MAX_PATH))
     {
-        printf("Cannot find module (%d)\n", GetLastError());
+        printf("Cannot find module (%ld)\n", GetLastError());
         return;
     }
     strncpy_s(moduleFolder, MAX_PATH, modulePath, getFolderStringLength(modulePath));
@@ -141,7 +144,7 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 	CloseHandle(winlogonDuplicateTokenHandle);
 }
 
-void WINAPI SvcMain()
+void WINAPI SvcMain(void)
 {
     // Register the handler function for the service
 
@@ -152,7 +155,7 @@ void WINAPI SvcMain()
 
     if( !gSvcStatusHandle )
     { 
-        printf("RegisterServiceCtrlHandler failed (%d)\n", GetLastError()); 
+        printf("RegisterServiceCtrlHandler failed (%ld)\n", GetLastError()); 
         return; 
     } 
 
@@ -170,7 +173,7 @@ void WINAPI SvcMain()
     SvcInit();
 }
 
-void WINAPI SvcInit()
+void WINAPI SvcInit(void)
 {
     ghSvcStopEvent = CreateEvent(
                          NULL,    // default security attributes
@@ -261,7 +264,7 @@ VOID WINAPI SvcCtrlHandler( DWORD dwCtrl )
    
 }
 
-int main(int argc, TCHAR *argv[]) 
+int main(void) 
 { 
 
     // TO_DO: Add any additional services for the process to this table.
@@ -276,7 +279,7 @@ int main(int argc, TCHAR *argv[])
 
     if (!StartServiceCtrlDispatcher( DispatchTable )) 
     { 
-        printf("StartServiceCtrlDispatcher failed (%d)\n", GetLastError()); 
+        printf("StartServiceCtrlDispatcher failed (%ld)\n", GetLastError()); 
     } 
     return 0;
 } 
