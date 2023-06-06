@@ -3,7 +3,7 @@
 
 !include <win32.mak>
 
-all: svc userToken winkey clear
+all: svc userToken winkey clean
 
 .c.obj:
   $(cc) $(cdebug) $(cflags) $(cvars) -Wall -WX $*.c

