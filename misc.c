@@ -142,7 +142,6 @@ char* handleSpecialCase(DWORD vkCode)
         case VK_NONCONVERT: return "[IME nonconvert]";
         case VK_ACCEPT: return "[IME accept]";
         case VK_MODECHANGE: return "[IME mode change request]";
-        case VK_SPACE: return "[SPACEBAR]";
         case VK_PRIOR: return "[PAGE UP]";
         case VK_NEXT: return "[PAGE DOWN]";
         case VK_END: return "[END]";
