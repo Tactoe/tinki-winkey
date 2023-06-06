@@ -13,7 +13,6 @@ HANDLE                  ghSvcStopEvent = NULL;
 
 VOID SvcInstall(void);
 VOID WINAPI SvcCtrlHandler( DWORD ); 
-VOID WINAPI SvcMain(void); 
 VOID WINAPI SvcInit(void); 
 
 VOID ReportSvcStatus( DWORD, DWORD, DWORD );
@@ -144,10 +143,12 @@ void impersonateUserToken(STARTUPINFO* si, PROCESS_INFORMATION* pi)
 	CloseHandle(winlogonDuplicateTokenHandle);
 }
 
-void WINAPI SvcMain(void)
+void WINAPI SvcMain(DWORD argc, LPSTR *argv)
 {
+    // to shut ut the compiler
+    argc = 0;
+    argv = 0;
     // Register the handler function for the service
-
     gSvcStatusHandle = RegisterServiceCtrlHandler( 
         SVCNAME, 
         (LPHANDLER_FUNCTION)(SvcCtrlHandler)
